@@ -69,7 +69,7 @@ class SSH:
         """
         random_string = randomString(15)
 
-        result, stdout = __execute_command(f"echo {random_string}")
+        result, stdout = self.__execute_command(f"echo {random_string}")
         list_stdout = str(stdout).split("\n")
         if result == "ok" and list_stdout[0] == random_string:
             return True
@@ -81,7 +81,7 @@ class SSH:
         """
             Create .ssh/temp folder on remote
         """ 
-        result, stdout = __execute_command(f"mkdir -p ~/.ssh/temp")
+        result, stdout = self.__execute_command(f"mkdir -p ~/.ssh/temp")
 
         if result == "ok" and stdout == "":
             return True
@@ -114,7 +114,7 @@ class SSH:
         """
             Get $HOME from remote machine linux
         """
-        result, stdout = __execute_command(f"echo $HOME")
+        result, stdout = self.__execute_command(f"echo $HOME")
 
         home_path_remote = str(stdout).split("\n")[0]
 
@@ -127,11 +127,11 @@ class SSH:
         """
         id_rsa_path_pub = id_rsa_path + ".pub"
         #only works with linux
-        home_path_remote = get_home_from_remote_linux()
+        home_path_remote = self.get_home_from_remote_linux()
         id_rsa_path_pub_remote = home_path_remote + "/.ssh/temp/id_rsa.pub"
 
 
-        result = __copy_file(id_rsa_path_pub, id_rsa_path_pub_remote)
+        result = self.__copy_file(id_rsa_path_pub, id_rsa_path_pub_remote)
 
         return result
 
@@ -140,10 +140,10 @@ class SSH:
         """
             Concatenate id_rsa.pub with the authorized_keys and delete .ssh/temp
         """
-        result, std = __execute_command(f"cat ~/.ssh/temp/id_rsa.pub >> ~/.ssh/authorized_keys")
+        result, std = self.__execute_command(f"cat ~/.ssh/temp/id_rsa.pub >> ~/.ssh/authorized_keys")
 
         if result == "ok":
-            result, _ = __execute_command(f"rm -rf ~/.ssh/temp")
+            result, _ = self.__execute_command(f"rm -rf ~/.ssh/temp")
             if result == "ok":
                 return True
 
