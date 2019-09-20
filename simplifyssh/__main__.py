@@ -82,7 +82,7 @@ def main():
         username_remote = input("Username: ")
         ssh = SSH(hostname_remote, username_remote)
 
-        if ssh.already_logged_in():
+        if not ssh.already_logged_in():
             password_remote = getpass("Password: ")
             ssh.set_password(password_remote)
             if not ssh.validate_password():
