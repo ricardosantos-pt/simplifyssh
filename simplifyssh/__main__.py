@@ -50,13 +50,16 @@ def create_get_id_rsa(ssh_folder):
         else:
             email = input("Email for ssh key: ")
             sub_p = subprocess.Popen(["ssh-keygen", "-t", "rsa", "-b", "4096", "-C", email, "-P", "", "-f", id_rsa_path],
+                                     shell=True,
                                      stdout=subprocess.PIPE,
-                                     stderr=subprocess.STDOUT)
+                                     stderr=subprocess.PIPE)
             _, stderr = sub_p.communicate()
-            if stderr == None:
+            sub_p.kill()
+            if stderr.decode("utf-8") == "":
                 return id_rsa_path
             else:
-                print("Something happen try again\n")
+                stderr_string = stderr.decode('utf-8').strip('\n')
+                print(f"Error creating id_rsa: {stderr_string}\n")
                 return create_get_id_rsa(ssh_folder)
     else:
         return create_get_id_rsa(ssh_folder)
@@ -79,11 +82,7 @@ def main():
         username_remote = input("Username: ")
         ssh = SSH(hostname_remote, username_remote)
 
-        already_logged = ssh.already_logged_in()
-        if already_logged == 0:
-            print("\nConnection timeout! Try again later!")
-            break
-        elif already_logged == 1:
+        if ssh.already_logged_in():
             password_remote = getpass("Password: ")
             ssh.set_password(password_remote)
             if not ssh.validate_password():
@@ -105,7 +104,7 @@ def main():
                         print("Couldn't copy id_rsa.pub")
                 else:
                     print("Couldn't create ssh folder")
-        elif already_logged == 2:
+        else:
             print("You are already logged in!")
             break
 

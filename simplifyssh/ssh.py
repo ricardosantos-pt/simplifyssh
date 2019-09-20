@@ -23,18 +23,18 @@ class SSH:
         """
         random_string = randomString(15)
         with subprocess.Popen((f"ssh -oConnectTimeout=12 -oPasswordAuthentication=No {self.__username}@{self.__hostname} echo {random_string}").split(),
+                            shell=True,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE) as sub_p:
             stdout, stderr = sub_p.communicate()
         stdout_string = stdout.decode("utf-8").strip("\n")
         stderr_string = stderr.decode("utf-8").strip("\n")
-        if stderr_string != "":
-            return 0
-        elif (stderr == None or stderr_string == "") and stdout_string == random_string:
-            return 2
-        else:
-            return 1
 
+        if stdout_string == random_string:
+            return True
+        else:
+            print(stderr_string)
+            return False
 
     def __execute_command(self, command):
         """
