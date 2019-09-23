@@ -50,7 +50,7 @@ def create_get_id_rsa(ssh_folder):
         else:
             email = input("Email for ssh key: ")
             sub_p = subprocess.Popen(["ssh-keygen", "-t", "rsa", "-b", "4096", "-C", email, "-P", "", "-f", id_rsa_path],
-                                     shell=True,
+                                     shell=use_shell(),
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE)
             _, stderr = sub_p.communicate()

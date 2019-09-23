@@ -1,4 +1,5 @@
-import os, platform
+import os
+import platform
 from getpass import getuser
 from pathlib import Path
 
@@ -17,14 +18,23 @@ def get_os_name():
     else:
         return f"{platform.system()}"
 
+
 def get_username():
     """
         get username
     """
     return getuser()
 
+
 def get_homedir_user():
     """
         get path from local user
     """
     return Path.home()
+
+
+def use_shell():
+    if platform.system() == "Windows":
+        return True
+    else:
+        return False

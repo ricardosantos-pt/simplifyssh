@@ -1,6 +1,7 @@
 import socket
 import subprocess
 from .randomString import *
+from .infoOS import use_shell
 import os
 from paramiko import SSHClient, AutoAddPolicy
 from pathlib import Path
@@ -21,6 +22,7 @@ class SSH:
     def __isOpen(self, ip, port):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
+            s.settimeout(4)
             s.connect((ip, int(port)))
             s.shutdown(2)
             return True
@@ -34,7 +36,7 @@ class SSH:
         random_string = randomString(15)
         if self.__isOpen(self.__hostname, 22):
             with subprocess.Popen((f"ssh -oConnectTimeout=12 -oPasswordAuthentication=No {self.__username}@{self.__hostname} echo {random_string}").split(),
-                                  shell=True,
+                                  shell=use_shell(),
                                   stdout=subprocess.PIPE,
                                   stderr=subprocess.PIPE) as sub_p:
                 stdout, stderr = sub_p.communicate()
