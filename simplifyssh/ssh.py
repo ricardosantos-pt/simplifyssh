@@ -43,12 +43,13 @@ class SSH:
             stdout_string = stdout.decode("utf-8").strip("\n")
             stderr_string = stderr.decode("utf-8").strip("\n")
         else:
+            print("Cannot connect to this ip/port!")
             return 0
 
         if stdout_string == random_string:
+            print("Connection done!")
             return 2
         else:
-            print(stderr_string)
             return 1
 
     def __execute_command(self, command):
@@ -98,8 +99,10 @@ class SSH:
         result, stdout = self.__execute_command(f"mkdir -p ~/.ssh/temp")
 
         if result == "ok" and stdout == "":
+            print("SSH path created with success!")
             return True
         else:
+            print("Couldn't create ssh folder")
             return False
 
     def __copy_file(self, file_path, remotefilepath):
@@ -145,6 +148,9 @@ class SSH:
 
         result = self.__copy_file(id_rsa_path_pub, id_rsa_path_pub_remote)
 
+        if not result:
+            print("Couldn't copy id_rsa.pub")
+
         return result
 
     def build_authorized_keys(self):
@@ -159,4 +165,5 @@ class SSH:
             if result == "ok":
                 return True
 
+        print("Couldn't conclude ssh configuration")
         return False
