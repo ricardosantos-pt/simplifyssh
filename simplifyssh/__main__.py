@@ -82,7 +82,8 @@ def main():
         username_remote = input("Username: ")
         ssh = SSH(hostname_remote, username_remote)
 
-        if not ssh.already_logged_in():
+        already_logged_in = ssh.already_logged_in()
+        if already_logged_in == 1:
             password_remote = getpass("Password: ")
             ssh.set_password(password_remote)
             if not ssh.validate_password():
@@ -93,9 +94,12 @@ def main():
                 if ssh.create_ssh_folder_on_remote():
                     if ssh.copy_id_rsa_pub(id_rsa):
                         if ssh.build_authorized_keys():
-                            if ssh.already_logged_in():
+                            already_logged_in = ssh.already_logged_in()
+                            if already_logged_in == 2:
                                 print("Connection done!")
                                 break
+                            elif already_logged_in == 0:
+                                print("Cannot connect to this ip/port!")
                             else:
                                 print("Please try again later something happen")
                         else:
@@ -104,9 +108,11 @@ def main():
                         print("Couldn't copy id_rsa.pub")
                 else:
                     print("Couldn't create ssh folder")
-        else:
+        elif already_logged_in == 2:
             print("You are already logged in!")
             break
+        elif already_logged_in == 0:
+            print("Cannot connect to this ip/port!")
 
 
 if __name__ == "__main__":
