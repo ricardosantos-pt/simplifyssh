@@ -35,7 +35,7 @@ class SSH:
         """
         random_string = randomString(15)
         if self.__isOpen(self.__hostname, 22):
-            with subprocess.Popen((f"ssh -oConnectTimeout=12 -oPasswordAuthentication=No {self.__username}@{self.__hostname} echo {random_string}").split(),
+            with subprocess.Popen((f"ssh -oConnectTimeout=8 -oPasswordAuthentication=No {self.__username}@{self.__hostname} echo {random_string}").split(),
                                   shell=use_shell(),
                                   stdout=subprocess.PIPE,
                                   stderr=subprocess.PIPE) as sub_p:
