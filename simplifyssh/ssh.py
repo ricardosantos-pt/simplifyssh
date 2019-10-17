@@ -3,8 +3,15 @@ import subprocess
 from .randomString import *
 from .infoOS import use_shell
 import os
-from paramiko import SSHClient, AutoAddPolicy
+from paramiko import SSHClient, AutoAddPolicy, BadHostKeyException
 from pathlib import Path
+from enum import Enum
+
+
+class SSHExecuteResponse(Enum):
+    OK = 1
+    ERROR = 2
+    BADHOSTKEY = 3
 
 
 class SSH:
@@ -52,7 +59,7 @@ class SSH:
         else:
             return 1
 
-    def __execute_command(self, command):
+    def __execute_command(self, command) -> (SSHExecuteResponse, str):
         """
             Execute command on remote
         """
@@ -72,12 +79,14 @@ class SSH:
                 print(f"\nerror: {stderr_text}")
 
             if stderr_text == "":
-                return ("ok", stdout_text)
-
+                return (SSHExecuteResponse.OK, stdout_text)
+        except BadHostKeyException as e:
+            client.close()
+            return (SSHExecuteResponse.BADHOSTKEY, e)
         finally:
             client.close()
 
-        return ("error", stderr_text)
+        return (SSHExecuteResponse.ERROR, stderr_text)
 
     def validate_password(self):
         """
@@ -87,10 +96,12 @@ class SSH:
 
         result, stdout = self.__execute_command(f"echo {random_string}")
         list_stdout = str(stdout).split("\n")
-        if result == "ok" and list_stdout[0] == random_string:
+        if result == SSHExecuteResponse.OK and list_stdout[0] == random_string:
             return True
-        else:
+        elif result == SSHExecuteResponse.ERROR:
             return False
+        elif result == SSHExecuteResponse.BADHOSTKEY:
+            return None
 
     def create_ssh_folder_on_remote(self):
         """
@@ -98,10 +109,10 @@ class SSH:
         """
         result, stdout = self.__execute_command(f"mkdir -p ~/.ssh/temp")
 
-        if result == "ok" and stdout == "":
+        if result == SSHExecuteResponse.OK and stdout == "":
             print("SSH path created with success!")
             return True
-        else:
+        elif result == SSHExecuteResponse.ERROR:
             print("Couldn't create ssh folder")
             return False
 
@@ -121,7 +132,8 @@ class SSH:
             sftp.close()
 
             return True
-
+        except BadHostKeyException as e:
+            pass
         finally:
             client.close()
 
@@ -160,9 +172,9 @@ class SSH:
         result, std = self.__execute_command(
             f"cat ~/.ssh/temp/id_rsa.pub >> ~/.ssh/authorized_keys")
 
-        if result == "ok":
+        if result == SSHExecuteResponse.OK:
             result, _ = self.__execute_command(f"rm -rf ~/.ssh/temp")
-            if result == "ok":
+            if result == SSHExecuteResponse.OK:
                 return True
 
         print("Couldn't conclude ssh configuration")

@@ -5,6 +5,7 @@ from getpass import getpass
 from .ssh import SSH
 from .infoOS import *
 import subprocess
+from pathlib import Path
 
 
 def create_get_ssh_folder(root_directory):
@@ -55,7 +56,7 @@ def create_get_id_rsa(ssh_folder):
                                      stderr=subprocess.PIPE)
             _, stderr = sub_p.communicate()
             sub_p.kill()
-            if stderr.decode("utf-8") == "":
+            if stderr.decode("utf-8") == "\n":
                 return id_rsa_path
             else:
                 stderr_string = stderr.decode('utf-8').strip('\n')
@@ -86,6 +87,14 @@ def main():
         if already_logged_in == 1:
             password_remote = getpass("Password: ")
             ssh.set_password(password_remote)
+            validation = ssh.validate_password()
+            if validation == None:
+                print("You had a ssh key already for that ip.")
+                print(
+                    f"Please remove it and run simplifyssh again:\n\n\tssh-keygen -f {path.join(Path.home(), '.ssh/known_hosts')} -R \"{hostname_remote}\"\n"
+                )
+                break
+
             if not ssh.validate_password():
                 print("Wrong ip, username or password. Please enter them again:")
             else:
