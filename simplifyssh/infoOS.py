@@ -12,9 +12,6 @@ def get_os_name():
         return f"{platform.system()} {platform.release()}"
     elif platform.system() == "MacOS":
         return f"{platform.system()} {platform.mac_ver()}"
-    elif platform.system() == "Linux":
-        name, version, *_ = platform.linux_distribution()
-        return f"{platform.system()} - {name} {version}"
     else:
         return f"{platform.system()}"
 
