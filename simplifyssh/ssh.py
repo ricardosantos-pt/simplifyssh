@@ -1,11 +1,13 @@
 import socket
 import subprocess
-from .randomString import *
-from .infoOS import use_shell
+from simplifyssh.randomString import randomString
+from simplifyssh.infoOS import use_shell
 import os
 from paramiko import SSHClient, AutoAddPolicy, BadHostKeyException
 from pathlib import Path
 from enum import Enum
+import psutil
+from os import path
 
 
 class SSHExecuteResponse(Enum):
@@ -14,10 +16,17 @@ class SSHExecuteResponse(Enum):
     BADHOSTKEY = 3
 
 
+class OSRemote(Enum):
+    WINDOWS = 1
+    LINUX = 2
+
+
 class SSH:
     __hostname = None
     __username = None
     __password = None
+    __os_remote: OSRemote = None
+    __user_home_path: str = None
 
     def __init__(self, hostname, username):
         self.__hostname = hostname
@@ -33,10 +42,10 @@ class SSH:
             s.connect((ip, int(port)))
             s.shutdown(2)
             return True
-        except:
+        except Exception:
             return False
 
-    def already_logged_in(self):
+    def already_logged_in(self, after_build_authorization_keys: bool = False):
         """
             Verify if user is already logged via authorized_keys
         """
@@ -47,11 +56,20 @@ class SSH:
                                   stdout=subprocess.PIPE,
                                   stderr=subprocess.PIPE) as sub_p:
                 stdout, stderr = sub_p.communicate()
-            stdout_string = stdout.decode("utf-8").strip("\n")
-            stderr_string = stderr.decode("utf-8").strip("\n")
+            stdout_string = stdout.decode("utf-8").strip("\n").strip("\r")
+            stderr_string = stderr.decode("utf-8").strip("\n").strip("\r")
         else:
             print("Cannot connect to this ip/port!")
             return 0
+
+        if self.__os_remote == OSRemote.WINDOWS and after_build_authorization_keys and stdout_string != randomString:
+            print("""
+            Please comment in C:\\ProgramData\\ssh\\sshd_config:
+                # Match Group administrators                                                    
+                #       AuthorizedKeysFile __PROGRAMDATA__/ssh/administrators_authorized_keys  
+            Then Stop-Service sshd and Start-Service sshd in powershell admin on windows remote machine.
+            """)
+            return 2
 
         if stdout_string == random_string:
             print("Connection done!")
@@ -67,53 +85,63 @@ class SSH:
             client = SSHClient()
             client.set_missing_host_key_policy(AutoAddPolicy())
             client.load_system_host_keys()
-            client.connect(self.__hostname,
-                           username=self.__username, password=self.__password)
+            client.connect(self.__hostname, username=self.__username, password=self.__password)
 
             _, stdout, stderr = client.exec_command(command)
 
-            stdout_text = stdout.read().decode()
-            stderr_text = stderr.read().decode()
+            stdout_text = stdout.read().decode().replace("\r", "")
+            stderr_text = stderr.read().decode().replace("\r", "")
 
             if stderr_text != "":
-                print(f"\nerror: {stderr_text}")
+                return (SSHExecuteResponse.ERROR, stdout_text)
 
             if stderr_text == "":
                 return (SSHExecuteResponse.OK, stdout_text)
         except BadHostKeyException as e:
             client.close()
             return (SSHExecuteResponse.BADHOSTKEY, e)
+        except Exception:
+            client.close()
         finally:
             client.close()
 
-        return (SSHExecuteResponse.ERROR, stderr_text)
+        return (SSHExecuteResponse.ERROR, None)
 
-    def validate_password(self):
+    def validate_password(self) -> bool:
         """
             Validate password on remote
         """
         random_string = randomString(15)
 
-        result, stdout = self.__execute_command(f"echo {random_string}")
+        result, stdout = self.__execute_command(f"echo {random_string} && echo %OS%")
         list_stdout = str(stdout).split("\n")
+        list_stdout = [i.replace(" ", "") for i in list_stdout]
         if result == SSHExecuteResponse.OK and list_stdout[0] == random_string:
+            if(list_stdout[1] == "Windows_NT"):
+                self.__os_remote = OSRemote.WINDOWS
+            else:
+                self.__os_remote = OSRemote.LINUX
             return True
         elif result == SSHExecuteResponse.ERROR:
             return False
         elif result == SSHExecuteResponse.BADHOSTKEY:
-            return None
+            return False
 
     def create_ssh_folder_on_remote(self):
         """
             Create .ssh/temp folder on remote
         """
-        result, stdout = self.__execute_command(f"mkdir -p ~/.ssh/temp")
+        print("\nTrying to create ssh folder on remote!")
+        if(self.__os_remote == OSRemote.LINUX):
+            result, stdout = self.__execute_command("mkdir -p ~/.ssh/temp")
+        else:
+            result, stdout = self.__execute_command("powershell New-Item -ItemType Directory -Force -Path ~/.ssh/temp")
 
-        if result == SSHExecuteResponse.OK and stdout == "":
+        if result == SSHExecuteResponse.OK:
             print("SSH path created with success!")
             return True
         elif result == SSHExecuteResponse.ERROR:
-            print("Couldn't create ssh folder")
+            print("Couldn't create ssh folder on remote!")
             return False
 
     def __copy_file(self, file_path, remotefilepath):
@@ -124,8 +152,7 @@ class SSH:
             client = SSHClient()
             client.set_missing_host_key_policy(AutoAddPolicy())
             client.load_system_host_keys()
-            client.connect(self.__hostname,
-                           username=self.__username, password=self.__password)
+            client.connect(self.__hostname, username=self.__username, password=self.__password)
 
             sftp = client.open_sftp()
             sftp.put(file_path, remotefilepath)
@@ -139,13 +166,18 @@ class SSH:
 
         return False
 
-    def get_home_from_remote_linux(self):
+    def get_user_homedir_from_remote(self):
         """
-            Get $HOME from remote machine linux
+            Get $HOME from remote machine
         """
-        result, stdout = self.__execute_command(f"echo $HOME")
+        if(self.__os_remote == OSRemote.WINDOWS):
+            result, stdout = self.__execute_command("echo %USERPROFILE%")
+        else:
+            result, stdout = self.__execute_command("echo $HOME")
 
-        home_path_remote = str(stdout).split("\n")[0]
+        home_path_remote = str(stdout).split("\n")[0].replace("\r", "")
+
+        self.__user_home_path = home_path_remote
 
         return home_path_remote
 
@@ -154,9 +186,7 @@ class SSH:
             Copy the id_rsa.pub to the remote .ssh/temp folder
         """
         id_rsa_path_pub = id_rsa_path + ".pub"
-        # only works with linux
-        home_path_remote = self.get_home_from_remote_linux()
-        id_rsa_path_pub_remote = home_path_remote + "/.ssh/temp/id_rsa.pub"
+        id_rsa_path_pub_remote = join_path(self.__user_home_path, "/.ssh/temp/id_rsa.pub")
 
         result = self.__copy_file(id_rsa_path_pub, id_rsa_path_pub_remote)
 
@@ -169,13 +199,29 @@ class SSH:
         """
             Concatenate id_rsa.pub with the authorized_keys and delete .ssh/temp
         """
-        result, std = self.__execute_command(
-            f"cat ~/.ssh/temp/id_rsa.pub >> ~/.ssh/authorized_keys")
+
+        if(self.__os_remote == OSRemote.WINDOWS):
+            id_rsa_path_remote = join_path(self.__user_home_path, "/.ssh/temp/id_rsa.pub")
+            authorizated_keys_path_remote = join_path(self.__user_home_path, "/.ssh/authorized_keys")
+            result, std = self.__execute_command(f"powershell type {id_rsa_path_remote} >> {authorizated_keys_path_remote}")
+        else:
+            result, std = self.__execute_command("cat ~/.ssh/temp/id_rsa.pub >> ~/.ssh/authorized_keys")
 
         if result == SSHExecuteResponse.OK:
-            result, _ = self.__execute_command(f"rm -rf ~/.ssh/temp")
-            if result == SSHExecuteResponse.OK:
-                return True
+            if(self.__os_remote == OSRemote.LINUX):
+                result, _ = self.__execute_command("rm -rf ~/.ssh/temp")
+            elif(self.__os_remote == OSRemote.WINDOWS):
+                id_rsa_path_remote = join_path(self.__user_home_path, "/.ssh/temp")
+                result, _ = self.__execute_command(f"rd /S /Q {id_rsa_path_remote}")
+
+            return True
 
         print("Couldn't conclude ssh configuration")
         return False
+
+
+def join_path(initial_path: str, path: str):
+    if not initial_path.startswith("/"):
+        path = path.replace("/", "\\")
+
+    return initial_path + path

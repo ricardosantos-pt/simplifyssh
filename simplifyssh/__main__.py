@@ -2,8 +2,8 @@
 import os
 from os import path, mkdir
 from getpass import getpass
-from .ssh import SSH
-from .infoOS import *
+from simplifyssh.ssh import SSH
+import simplifyssh.infoOS as info_os
 import subprocess
 from pathlib import Path
 
@@ -51,7 +51,7 @@ def create_get_id_rsa(ssh_folder):
         else:
             email = input("Email for ssh key: ")
             sub_p = subprocess.Popen(["ssh-keygen", "-t", "rsa", "-b", "4096", "-C", email, "-P", "", "-f", id_rsa_path],
-                                     shell=use_shell(),
+                                     shell=info_os.use_shell(),
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE)
             _, stderr = sub_p.communicate()
@@ -67,9 +67,9 @@ def create_get_id_rsa(ssh_folder):
 
 
 def main():
-    os_name = get_os_name()
-    username_local = get_username()
-    home_dir = get_homedir_user()
+    os_name = info_os.get_os_name()
+    username_local = info_os.get_username()
+    home_dir = info_os.get_homedir_user()
 
     print(
         f"SSH install key on remote:\n\nRunning on {os_name} as {username_local}\nHome directory: {home_dir}"
@@ -79,33 +79,39 @@ def main():
 
     print("\nRemote settings:")
     while True:
-        hostname_remote = input("IP remote machine: ")
-        username_remote = input("Username: ")
+        try:
+            hostname_remote = input("IP remote machine: ")
+            username_remote = input("Username: ")
+        except KeyboardInterrupt:
+            exit()
+
         ssh = SSH(hostname_remote, username_remote)
 
         already_logged_in = ssh.already_logged_in()
         if already_logged_in == 1:
             password_remote = getpass("Password: ")
             ssh.set_password(password_remote)
-            validation = ssh.validate_password()
-            if validation == None:
+            valide = ssh.validate_password()
+            if valide is None:
                 print("You had a ssh key already for that ip.")
                 print(
                     f"Please remove it and run simplifyssh again:\n\n\tssh-keygen -f {path.join(Path.home(), '.ssh/known_hosts')} -R \"{hostname_remote}\"\n"
                 )
                 break
-
-            if not ssh.validate_password():
+            elif not valide:
                 print("Wrong ip, username or password. Please enter them again:")
-            else:
+            elif valide:
                 print("\nValid Password!")
                 id_rsa = create_get_id_rsa(ssh_folder)
                 if ssh.create_ssh_folder_on_remote():
+                    userhome_remote = ssh.get_user_homedir_from_remote()
+                    print(f"User home in the remote machine: {userhome_remote}")
                     if ssh.copy_id_rsa_pub(id_rsa):
                         if ssh.build_authorized_keys():
-                            if ssh.already_logged_in() == 2:
+                            if ssh.already_logged_in(True) == 2:
                                 break
         elif already_logged_in == 2:
+            print("Already logged in!")
             break
 
 
