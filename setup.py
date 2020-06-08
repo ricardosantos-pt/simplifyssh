@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='simplifyssh',
-    version='0.3.0',
+    version='0.7.0',
     packages=['simplifyssh'],
     install_requires=[
         'paramiko'
