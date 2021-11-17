@@ -1,12 +1,12 @@
 import socket
 import subprocess
+from typing import Tuple
 from simplifyssh.randomString import randomString
 from simplifyssh.infoOS import use_shell
 import os
 from paramiko import SSHClient, AutoAddPolicy, BadHostKeyException
 from pathlib import Path
 from enum import Enum
-import psutil
 from os import path
 
 
@@ -77,7 +77,7 @@ class SSH:
         else:
             return 1
 
-    def __execute_command(self, command) -> (SSHExecuteResponse, str):
+    def __execute_command(self, command) -> Tuple[SSHExecuteResponse, str]:
         """
             Execute command on remote
         """
