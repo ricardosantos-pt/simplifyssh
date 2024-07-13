@@ -1,0 +1,13 @@
+[build-system]
+requires = ["flit_core >=2,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.metadata]
+module = "simplifyssh"
+author = "Ricardo Santos"
+home-page = "https://example.com/simplifyssh"
+description-file = "README.md"
+requires = ["paramiko"]
+
+[tool.flit.scripts]
+simplifyssh = "simplifyssh.__main__:main"
